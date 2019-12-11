@@ -1,0 +1,123 @@
+#!/bin/bash
+# ----------------------------------------------------------------------------
+# "THE BEER-WARE LICENSE" (Revision 42):
+# <quackmore-ff@yahoo.com> wrote this file.  As long as you retain this notice
+# you can do whatever you want with this stuff. If we meet some day, and you 
+# think this stuff is worth it, you can buy me a beer in return.   
+# Quackmore
+# ----------------------------------------------------------------------------
+
+if [ $# -le 3 ]; then
+    if [ $# -lt 2 ]; then
+        echo "$0: usage: $0 <file> <device ip address> [--verbose]"
+        exit 1
+    fi
+    if [ "$3" = "--verbose" ]; then
+        set -x
+    fi
+else
+    echo "$0: usage: $0 <file> <device ip address> [--verbose]"
+    exit 1
+fi
+
+device_ip=$2
+filename=$1
+delay=1
+
+extension="${filename##*.}"
+
+if [ "$extension" = "html" ]; then
+    # file size is compressed removing:
+    # + blank spaces in front of the lines
+    # + html comments
+    # + new line characters
+    cat $filename | sed 's/^\ *//' | sed 's/<!--.*-->//' | tr -d '\n' > working_file
+    # state the file version using git and add it to the beginning of the file
+    version=`git --no-pager describe --tags --always --dirty`
+    echo "<!--$version-->" | cat - working_file > temp && mv temp working_file
+elif [ "$extension" = "js" ]; then
+    # compress file size:
+    # + removing blank spaces in front of the lines
+    # + removing js comments
+    # + replacing new line characters with blank spaces
+    cat $filename | sed 's/^\ *//' | sed 's/^\/\/.*//' | tr '\n' ' ' > working_file
+    # state the file version using git and add it to the beginning of the file
+    version=`git --no-pager describe --tags --always --dirty`
+    echo "//$version" | cat - working_file > temp && mv temp working_file
+else
+    # don't change the file!
+    cp $filename working_file
+fi
+
+# split the file
+split -b1024 -d working_file
+
+# The nullglob option causes the array to be empty if there are no matches.
+# shopt -s nullglob
+
+filelist=( x* )
+
+#echo ${#filelist[@]} # will echo number of elements in array
+#echo "${filelist[@]}" # will dump all elements of the array
+
+# upload the file pieces to the device
+# curl -i --location --request POST "http://$device_ip/api/files/delete/$filename"
+
+first_time=true
+
+for file in "${filelist[@]}"; do 
+    if [ "$first_time" = true ] ; then
+        # FIRST FILE PIECE
+        # first delete any occurrence of filename
+        # and create it using the first file piece
+	first_time=false
+        if [ "$3" = "--verbose" ]; then
+	    curl -i --location --request POST "http://$device_ip/api/files/delete/$filename"
+	else
+	    echo "deleting old $1 ..."
+	    status_code=$(curl --write-out "%{http_code}\n" --silent --output /dev/null --request POST "http://$device_ip/api/files/delete/$filename")
+	    if [ $status_code -ne 202 ] ; then
+		echo "there was no old $1"
+		exit 1
+            else
+	        echo "done!"
+            fi
+	fi
+	echo "awaiting..."
+        sleep $delay
+        if [ "$3" = "--verbose" ]; then
+	    curl -i --location --request POST "http://$device_ip/api/files/create/$filename" --header "Content-Type: text/html" --data-binary "@$file"
+        else
+	    echo "sending file piece ..."
+	    status_code=$(curl --write-out "%{http_code}\n" --silent --output /dev/null --request POST "http://$device_ip/api/files/create/$filename" --header "Content-Type: text/html" --data-binary "@$file")
+	    if [ $status_code -ne 201 ] ; then
+		echo "error while sending file, received $status_code"
+		exit 1
+            else
+	        echo "done!"
+            fi
+        fi
+	rm $file
+    else
+        # FOLLOWING FILE PIECES
+        # append following file pieces to filename
+	echo "awaiting..."
+        sleep $delay
+        if [ "$3" = "--verbose" ]; then
+	    curl -i --location --request POST "http://$device_ip/api/files/append/$filename" --header "Content-Type: text/html" --data-binary "@$file"
+        else
+	echo "sending file piece ..."
+	    status_code=$(curl --write-out "%{http_code}\n" --silent --output /dev/null --request POST "http://$device_ip/api/files/append/$filename" --header "Content-Type: text/html" --data-binary "@$file")
+	    if [ $status_code -ne 201 ] ; then
+		echo "error while sending file, received $status_code"
+		exit 1
+            else
+	        echo "done!"
+            fi
+        fi
+	rm $file
+    fi
+done
+
+echo "file sent!"
+rm working_file
