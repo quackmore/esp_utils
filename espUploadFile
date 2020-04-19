@@ -1,11 +1,4 @@
 #!/bin/bash
-# ----------------------------------------------------------------------------
-# "THE BEER-WARE LICENSE" (Revision 42):
-# <quackmore-ff@yahoo.com> wrote this file.  As long as you retain this notice
-# you can do whatever you want with this stuff. If we meet some day, and you 
-# think this stuff is worth it, you can buy me a beer in return.   
-# Quackmore
-# ----------------------------------------------------------------------------
 
 if [ $# -le 3 ]; then
     if [ $# -lt 2 ]; then
@@ -49,6 +42,8 @@ else
     cp $filename working_file
 fi
 
+wc -c working_file
+
 # split the file
 split -b1024 -d working_file
 
@@ -78,7 +73,6 @@ for file in "${filelist[@]}"; do
 	    status_code=$(curl --write-out "%{http_code}\n" --silent --output /dev/null --request POST "http://$device_ip/api/files/delete/$filename")
 	    if [ $status_code -ne 202 ] ; then
 		echo "there was no old $1"
-		exit 1
             else
 	        echo "done!"
             fi
