@@ -56,7 +56,7 @@ filelist=( x* )
 #echo "${filelist[@]}" # will dump all elements of the array
 
 # upload the file pieces to the device
-# curl -i --location --request POST "http://$device_ip/api/files/delete/$filename"
+# curl -i --location --request DELETE "http://$device_ip/api/file/$filename"
 
 first_time=true
 
@@ -67,23 +67,23 @@ for file in "${filelist[@]}"; do
         # and create it using the first file piece
 	first_time=false
         if [ "$3" = "--verbose" ]; then
-	    curl -i --location --request POST "http://$device_ip/api/files/delete/$filename"
+	    curl -i --location --request DELETE "http://$device_ip/api/file/$filename"
 	else
 	    echo "deleting old $1 ..."
-	    status_code=$(curl --write-out "%{http_code}\n" --silent --output /dev/null --request POST "http://$device_ip/api/files/delete/$filename")
-	    if [ $status_code -ne 202 ] ; then
+	    status_code=$(curl --write-out "%{http_code}\n" --silent --output /dev/null --request DELETE "http://$device_ip/api/file/$filename")
+	    if [ $status_code -ne 200 ] ; then
 		echo "there was no old $1"
             else
 	        echo "done!"
             fi
 	fi
 	echo "awaiting..."
-        sleep $delay
+        # sleep $delay
         if [ "$3" = "--verbose" ]; then
-	    curl -i --location --request POST "http://$device_ip/api/files/create/$filename" --header "Content-Type: text/html" --data-binary "@$file"
+	    curl -i --location --request POST "http://$device_ip/api/file/$filename" --header "Content-Type: text/html" --data-binary "@$file"
         else
 	    echo "sending file piece ..."
-	    status_code=$(curl --write-out "%{http_code}\n" --silent --output /dev/null --request POST "http://$device_ip/api/files/create/$filename" --header "Content-Type: text/html" --data-binary "@$file")
+	    status_code=$(curl --write-out "%{http_code}\n" --silent --output /dev/null --request POST "http://$device_ip/api/file/$filename" --header "Content-Type: text/html" --data-binary "@$file")
 	    if [ $status_code -ne 201 ] ; then
 		echo "error while sending file, received $status_code"
 		exit 1
@@ -96,13 +96,13 @@ for file in "${filelist[@]}"; do
         # FOLLOWING FILE PIECES
         # append following file pieces to filename
 	echo "awaiting..."
-        sleep $delay
+        # sleep $delay
         if [ "$3" = "--verbose" ]; then
-	    curl -i --location --request POST "http://$device_ip/api/files/append/$filename" --header "Content-Type: text/html" --data-binary "@$file"
+	    curl -i --location --request PUT "http://$device_ip/api/file/$filename" --header "Content-Type: text/html" --data-binary "@$file"
         else
 	echo "sending file piece ..."
-	    status_code=$(curl --write-out "%{http_code}\n" --silent --output /dev/null --request POST "http://$device_ip/api/files/append/$filename" --header "Content-Type: text/html" --data-binary "@$file")
-	    if [ $status_code -ne 201 ] ; then
+	    status_code=$(curl --write-out "%{http_code}\n" --silent --output /dev/null --request PUT "http://$device_ip/api/file/$filename" --header "Content-Type: text/html" --data-binary "@$file")
+	    if [ $status_code -ne 200 ] ; then
 		echo "error while sending file, received $status_code"
 		exit 1
             else
