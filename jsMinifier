@@ -1,0 +1,45 @@
+#!/bin/bash
+echo "minimizing js files and replacing their reference into html files"
+
+declare -a html_files=( 
+   "ctrl_settings.html"
+   "debug.html"
+   "device.html"
+   "events_journal.html"
+   "history.html"
+   "index.html"
+   "info.html"
+   )
+
+declare -a js_files=( 
+   "ctrl_settings.js"
+   "debug.js"
+   "device.js"
+   "event_codes.js"
+   "events_journal.js"
+   "history.js"
+   "home.js"
+   "shared.js"
+   )
+for html in "${html_files[@]}"
+do
+   file=$html
+   echo "working on $file..."
+   for js in "${js_files[@]}"
+   do
+      replaced=$js
+      replace=${replaced/.js/.min.js}
+      sed -i "s/${replaced}/${replace}/g" $file
+   done
+   echo "done"
+done
+
+for js in "${js_files[@]}"
+do
+   file=$js
+   new_file=${file/.js/.min.js}
+   echo "minimizing $file..."
+   npx terser -c -m -o $new_file $file 
+   rm $file
+   echo "done"
+done
